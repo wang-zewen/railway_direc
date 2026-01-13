@@ -7,15 +7,13 @@
 # 使用方法
 # ============================================
 #
-# 方法1: 交互式安装 (推荐新手)
-#   curl -fsSL https://raw.githubusercontent.com/yourname/repo/main/install.sh | bash
-#   或
-#   wget -qO- https://raw.githubusercontent.com/yourname/repo/main/install.sh | bash
+# 基础安装 (自动生成UUID):
+#   curl -fsSL https://url/install.sh | bash
 #
-# 方法2: 一键安装 (通过环境变量)
-#   curl -fsSL https://url/install.sh | UUID=your-uuid DOMAIN=your-domain.com bash
+# 自定义UUID:
+#   curl -fsSL https://url/install.sh | UUID=your-uuid bash
 #
-# 方法3: 完全自定义安装
+# 完整配置:
 #   curl -fsSL https://url/install.sh | \
 #     UUID=5efabea4-f6d4-91fd-b8f0-17e004c89c60 \
 #     DOMAIN=your-app.up.railway.app \
@@ -25,55 +23,16 @@
 #     bash
 #
 # ============================================
-# 环境变量说明
+# 环境变量配置
 # ============================================
 #
-# 必需变量:
-#   DOMAIN         - 域名 (必填,无默认值)
-#                    示例: your-app.up.railway.app
-#
-# 可选变量:
-#   UUID           - 用户标识 (默认: 自动生成)
-#                    示例: 5efabea4-f6d4-91fd-b8f0-17e004c89c60
-#
-#   PORT           - 服务端口 (默认: 8080)
-#                    示例: 8080
-#
-#   WSPATH         - WebSocket路径 (默认: UUID前8位)
-#                    示例: api/v2/ws 或 5efabea4
-#
-#   NAME           - 节点名称 (默认: 空)
-#                    示例: MyNode 或 HK-Server
-#
-#   NEZHA_SERVER   - 哪吒服务器 (默认: 空,不启用)
-#                    示例: nz.example.com:8008
-#
-#   NEZHA_KEY      - 哪吒密钥 (默认: 空)
-#                    示例: your_nezha_key
-#
-# ============================================
-# 使用示例
-# ============================================
-#
-# 示例1: 最简单的安装 (只指定域名,其他自动生成)
-#   curl -fsSL https://url/install.sh | DOMAIN=my-app.up.railway.app bash
-#
-# 示例2: 指定UUID和域名
-#   curl -fsSL https://url/install.sh | \
-#     UUID=$(uuidgen | tr '[:upper:]' '[:lower:]') \
-#     DOMAIN=my-app.up.railway.app \
-#     bash
-#
-# 示例3: 完整配置
-#   curl -fsSL https://url/install.sh | \
-#     UUID=5efabea4-f6d4-91fd-b8f0-17e004c89c60 \
-#     DOMAIN=proxy.example.com \
-#     PORT=8080 \
-#     WSPATH=secure/tunnel \
-#     NAME=US-Server-01 \
-#     NEZHA_SERVER=nz.example.com:8008 \
-#     NEZHA_KEY=your_key_here \
-#     bash
+# UUID           - 用户标识 (默认: 自动生成)
+# DOMAIN         - 域名 (默认: localhost)
+# PORT           - 服务端口 (默认: 8080)
+# WSPATH         - WebSocket路径 (默认: UUID前8位)
+# NAME           - 节点名称 (默认: 空)
+# NEZHA_SERVER   - 哪吒服务器 (默认: 空)
+# NEZHA_KEY      - 哪吒密钥 (默认: 空)
 #
 # ============================================
 
@@ -127,60 +86,57 @@ detect_system() {
         OS=$ID
         VERSION=$VERSION_ID
     else
-        print_error "无法检测系统类型"
+        print_error "Unable to detect system type"
         exit 1
     fi
     
-    print_info "检测到系统: $OS $VERSION"
+    print_info "🐧 Detected system: $OS $VERSION"
 }
 
-# 检查是否为 root 用户
-check_root() {
+# 检查权限 (不强制要求root,只警告)
+check_permissions() {
     if [[ $EUID -ne 0 ]]; then
-        print_warning "建议使用 root 用户运行此脚本"
-        print_info "如需切换: sudo su"
-        read -p "是否继续? (y/n): " continue
-        if [[ ! $continue =~ ^[Yy]$ ]]; then
-            exit 1
-        fi
+        print_warning "⚠️  Not running as root, some operations may fail"
+        print_info "💡 If you encounter permission issues, run: sudo bash"
     fi
 }
 
 # 安装依赖
 install_dependencies() {
-    print_info "正在安装依赖..."
+    print_info "📦 Installing dependencies..."
     
     case $OS in
         ubuntu|debian)
             export DEBIAN_FRONTEND=noninteractive
-            apt-get update -qq > /dev/null 2>&1
-            apt-get install -y -qq curl wget git > /dev/null 2>&1
+            apt-get update -qq > /dev/null 2>&1 || true
+            apt-get install -y -qq curl wget git > /dev/null 2>&1 || true
             
             # 安装 Node.js
             if ! command -v node &> /dev/null; then
-                curl -fsSL https://deb.nodesource.com/setup_18.x | bash - > /dev/null 2>&1
-                apt-get install -y -qq nodejs > /dev/null 2>&1
+                print_info "📥 Installing Node.js..."
+                curl -fsSL https://deb.nodesource.com/setup_18.x | bash - > /dev/null 2>&1 || true
+                apt-get install -y -qq nodejs > /dev/null 2>&1 || true
             fi
             ;;
         centos|rhel|fedora)
-            yum install -y -q curl wget git > /dev/null 2>&1
+            yum install -y -q curl wget git > /dev/null 2>&1 || true
             
             # 安装 Node.js
             if ! command -v node &> /dev/null; then
-                curl -fsSL https://rpm.nodesource.com/setup_18.x | bash - > /dev/null 2>&1
-                yum install -y -q nodejs > /dev/null 2>&1
+                print_info "📥 Installing Node.js..."
+                curl -fsSL https://rpm.nodesource.com/setup_18.x | bash - > /dev/null 2>&1 || true
+                yum install -y -q nodejs > /dev/null 2>&1 || true
             fi
             ;;
         alpine)
-            apk add --no-cache curl wget git nodejs npm > /dev/null 2>&1
+            apk add --no-cache curl wget git nodejs npm > /dev/null 2>&1 || true
             ;;
         *)
-            print_error "不支持的系统: $OS"
-            exit 1
+            print_warning "⚠️  Unsupported system: $OS, continuing anyway..."
             ;;
     esac
     
-    print_success "依赖安装完成"
+    print_success "✅ Dependencies installed"
 }
 
 # 生成 UUID
@@ -196,132 +152,104 @@ generate_uuid() {
     fi
 }
 
-# 收集配置
-collect_config() {
-    print_info "开始配置参数..."
-    echo ""
-    
-    # 检查是否为非交互模式 (所有必需变量都已设置)
-    if [ -n "$UUID" ] && [ -n "$DOMAIN" ]; then
-        print_info "检测到环境变量,使用非交互模式"
-        USER_UUID=${UUID}
-        PORT=${PORT:-8080}
-        WSPATH=${WSPATH:-${USER_UUID:0:8}}
-        NODE_NAME=${NAME:-""}
-        NEZHA_SERVER=${NEZHA_SERVER:-""}
-        NEZHA_KEY=${NEZHA_KEY:-""}
-        
-        # 显示配置但不需要确认
-        echo ""
-        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        echo -e "${GREEN}配置信息:${NC}"
-        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        echo -e "  UUID: ${CYAN}$USER_UUID${NC}"
-        echo -e "  域名: ${CYAN}$DOMAIN${NC}"
-        echo -e "  端口: ${CYAN}$PORT${NC}"
-        echo -e "  路径: ${CYAN}/$WSPATH${NC}"
-        echo -e "  名称: ${CYAN}${NODE_NAME:-未设置}${NC}"
-        if [ -n "$NEZHA_SERVER" ]; then
-            echo -e "  哪吒: ${CYAN}已配置${NC}"
-        fi
-        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        echo ""
-        return
+# 生成 UUID
+generate_uuid() {
+    if command -v uuidgen &> /dev/null; then
+        uuidgen | tr '[:upper:]' '[:lower:]'
+    elif command -v python3 &> /dev/null; then
+        python3 -c "import uuid; print(str(uuid.uuid4()))"
+    elif command -v python &> /dev/null; then
+        python -c "import uuid; print(str(uuid.uuid4()))"
+    else
+        cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$(date +%s | md5sum | cut -c1-8)-$(shuf -i 1000-9999 -n 1)-4$(shuf -i 1000-9999 -n 1)-$(shuf -i 8000-9999 -n 1)-$(date +%N | cut -c1-12)"
     fi
+}
+
+# 获取服务器IP
+get_server_ip() {
+    local ip=""
     
-    # 交互模式
-    # UUID
-    if [ -z "$UUID" ]; then
-        echo -e "${CYAN}请输入 UUID (留空自动生成):${NC}"
-        read -p "> " USER_UUID
-        if [ -z "$USER_UUID" ]; then
-            USER_UUID=$(generate_uuid)
-            print_success "已生成 UUID: $USER_UUID"
+    # 尝试多个IP查询服务
+    for url in "https://api64.ipify.org" "https://ifconfig.me" "https://ip.sb"; do
+        ip=$(curl -s --max-time 3 "$url" 2>/dev/null)
+        if [ -n "$ip" ] && [[ $ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "$ip"
+            return
         fi
+    done
+    
+    echo "UNKNOWN"
+}
+
+# 初始化配置
+init_config() {
+    print_info "🔧 Initializing configuration..."
+    
+    # UUID: 优先环境变量,否则自动生成
+    if [ -z "$UUID" ]; then
+        USER_UUID=$(generate_uuid)
+        print_info "✅ Generated UUID: $USER_UUID"
     else
         USER_UUID=$UUID
-        print_info "使用环境变量 UUID: $USER_UUID"
+        print_info "✅ Using UUID: $USER_UUID"
     fi
     
-    # 域名
+    # DOMAIN: 使用环境变量或默认值
     if [ -z "$DOMAIN" ]; then
-        echo -e "${CYAN}请输入域名 (必填):${NC}"
-        echo -e "${YELLOW}提示: Railway会自动分配域名,如 your-app.up.railway.app${NC}"
-        read -p "> " DOMAIN
-        while [ -z "$DOMAIN" ]; do
-            print_error "域名不能为空!"
-            read -p "> " DOMAIN
-        done
+        DOMAIN="localhost"
+        print_warning "⚠️  No DOMAIN specified, using: localhost"
     else
-        print_info "使用环境变量 DOMAIN: $DOMAIN"
+        print_info "✅ Using DOMAIN: $DOMAIN"
     fi
     
-    # 端口
-    if [ -z "$PORT" ]; then
-        echo -e "${CYAN}请输入服务端口 (默认 8080):${NC}"
-        read -p "> " input_port
-        PORT=${input_port:-8080}
-    else
-        PORT=${PORT:-8080}
-        print_info "使用端口: $PORT"
-    fi
+    # PORT: 使用环境变量或默认值
+    PORT=${PORT:-8080}
+    print_info "✅ Using PORT: $PORT"
     
-    # WebSocket 路径
+    # WSPATH: 使用环境变量或UUID前8位
     if [ -z "$WSPATH" ]; then
-        echo -e "${CYAN}请输入 WebSocket 路径 (默认使用UUID前8位):${NC}"
-        read -p "> " WSPATH
-        if [ -z "$WSPATH" ]; then
-            WSPATH=${USER_UUID:0:8}
-        fi
+        WSPATH=${USER_UUID:0:8}
+        print_info "✅ Generated WSPATH: /$WSPATH"
     else
-        print_info "使用 WebSocket 路径: /$WSPATH"
+        print_info "✅ Using WSPATH: /$WSPATH"
     fi
     
-    # 节点名称
-    if [ -z "$NAME" ]; then
-        echo -e "${CYAN}请输入节点名称 (可选):${NC}"
-        read -p "> " NODE_NAME
-    else
-        NODE_NAME=$NAME
-        print_info "使用节点名称: $NODE_NAME"
+    # NAME: 使用环境变量或留空
+    NODE_NAME=${NAME:-""}
+    if [ -n "$NODE_NAME" ]; then
+        print_info "✅ Using NAME: $NODE_NAME"
     fi
     
-    # 哪吒监控
-    if [ -z "$NEZHA_SERVER" ]; then
-        echo -e "${CYAN}是否配置哪吒监控? (y/n, 默认n):${NC}"
-        read -p "> " use_nezha
-        if [[ $use_nezha =~ ^[Yy]$ ]]; then
-            echo -e "${CYAN}哪吒服务器地址 (例: nz.abc.com:8008):${NC}"
-            read -p "> " NEZHA_SERVER
-            
-            echo -e "${CYAN}哪吒密钥:${NC}"
-            read -p "> " NEZHA_KEY
-        fi
-    else
-        print_info "使用哪吒监控配置"
+    # 哪吒监控配置
+    NEZHA_SERVER=${NEZHA_SERVER:-""}
+    NEZHA_KEY=${NEZHA_KEY:-""}
+    if [ -n "$NEZHA_SERVER" ]; then
+        print_info "✅ Nezha monitoring enabled"
     fi
     
-    # 确认配置
+    # 获取服务器IP
+    print_info "🌐 Getting server IP..."
+    SERVER_IP=$(get_server_ip)
+    print_info "✅ Server IP: $SERVER_IP"
+    
+    # 显示配置摘要
     echo ""
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}配置信息确认:${NC}"
+    echo -e "${GREEN}📋 Configuration Summary${NC}"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "  UUID: ${CYAN}$USER_UUID${NC}"
-    echo -e "  域名: ${CYAN}$DOMAIN${NC}"
-    echo -e "  端口: ${CYAN}$PORT${NC}"
-    echo -e "  路径: ${CYAN}/$WSPATH${NC}"
-    echo -e "  名称: ${CYAN}${NODE_NAME:-未设置}${NC}"
+    echo -e "  Domain: ${CYAN}$DOMAIN${NC}"
+    echo -e "  Port: ${CYAN}$PORT${NC}"
+    echo -e "  Path: ${CYAN}/$WSPATH${NC}"
+    echo -e "  Server IP: ${CYAN}$SERVER_IP${NC}"
+    if [ -n "$NODE_NAME" ]; then
+        echo -e "  Name: ${CYAN}$NODE_NAME${NC}"
+    fi
     if [ -n "$NEZHA_SERVER" ]; then
-        echo -e "  哪吒: ${CYAN}已配置${NC}"
+        echo -e "  Nezha: ${CYAN}Enabled${NC}"
     fi
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    
-    read -p "确认以上信息? (y/n): " confirm
-    if [[ ! $confirm =~ ^[Yy]$ ]]; then
-        print_error "用户取消"
-        exit 1
-    fi
 }
 
 # 创建工作目录
@@ -329,19 +257,19 @@ create_workdir() {
     WORKDIR="/opt/railway-proxy"
     
     if [ -d "$WORKDIR" ]; then
-        print_warning "目录已存在,正在备份..."
+        print_warning "⚠️  Directory exists, backing up..."
         mv "$WORKDIR" "${WORKDIR}.backup.$(date +%s)"
     fi
     
     mkdir -p "$WORKDIR"
     cd "$WORKDIR"
     
-    print_success "工作目录创建: $WORKDIR"
+    print_success "✅ Working directory created: $WORKDIR"
 }
 
 # 创建项目文件
 create_files() {
-    print_info "正在创建项目文件..."
+    print_info "📝 Creating project files..."
     
     # package.json
     cat > package.json << 'EOF'
@@ -507,7 +435,7 @@ SERVERJS
 </html>
 EOF
 
-    print_success "项目文件创建完成"
+    print_success "✅ Project files created"
 }
 
 # 创建环境变量文件
@@ -520,19 +448,19 @@ WSPATH=$WSPATH
 SUB_PATH=sub
 NAME=$NODE_NAME
 EOF
-    print_success "配置文件创建完成"
+    print_success "✅ Configuration file created"
 }
 
 # 安装依赖
 install_deps() {
-    print_info "正在安装 Node.js 依赖..."
+    print_info "📦 Installing Node.js dependencies..."
     npm install --production > /dev/null 2>&1
-    print_success "依赖安装完成"
+    print_success "✅ Dependencies installed"
 }
 
 # 创建 systemd 服务
 create_service() {
-    print_info "正在创建系统服务..."
+    print_info "🔧 Creating systemd service..."
     
     cat > /etc/systemd/system/railway-proxy.service << EOF
 [Unit]
@@ -554,85 +482,84 @@ EOF
 
     systemctl daemon-reload
     systemctl enable railway-proxy > /dev/null 2>&1
-    print_success "系统服务创建完成"
+    print_success "✅ Systemd service created"
 }
 
 # 启动服务
 start_service() {
-    print_info "正在启动服务..."
+    print_info "🚀 Starting service..."
     systemctl restart railway-proxy
     sleep 2
     
     if systemctl is-active --quiet railway-proxy; then
-        print_success "服务启动成功"
+        print_success "✅ Service started successfully"
     else
-        print_error "服务启动失败,查看日志: journalctl -u railway-proxy -f"
+        print_error "❌ Service failed to start"
+        print_info "💡 Check logs: journalctl -u railway-proxy -f"
         exit 1
     fi
 }
 
 # 显示信息
 show_info() {
-    local IP=$(curl -s ip.sb 2>/dev/null || echo "unknown")
-    
     echo ""
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}         🎉 部署完成!${NC}"
+    echo -e "${GREEN}         🎉 Deployment Complete!${NC}"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "${CYAN}服务信息:${NC}"
+    echo -e "${CYAN}📍 Service Information:${NC}"
     echo -e "  UUID: ${YELLOW}$USER_UUID${NC}"
-    echo -e "  域名: ${YELLOW}$DOMAIN${NC}"
-    echo -e "  端口: ${YELLOW}$PORT${NC}"
-    echo -e "  路径: ${YELLOW}/$WSPATH${NC}"
-    echo -e "  服务器IP: ${YELLOW}$IP${NC}"
+    echo -e "  Domain: ${YELLOW}$DOMAIN${NC}"
+    echo -e "  Port: ${YELLOW}$PORT${NC}"
+    echo -e "  Path: ${YELLOW}/$WSPATH${NC}"
+    echo -e "  Server IP: ${YELLOW}$SERVER_IP${NC}"
     echo ""
-    echo -e "${CYAN}订阅地址:${NC}"
+    echo -e "${CYAN}🔗 Subscription URL:${NC}"
     echo -e "  ${YELLOW}https://$DOMAIN/sub${NC}"
     echo ""
-    echo -e "${CYAN}客户端配置:${NC}"
-    echo -e "  协议: VLESS/Trojan"
-    echo -e "  地址: $DOMAIN"
-    echo -e "  端口: 443"
-    echo -e "  UUID/密码: $USER_UUID"
-    echo -e "  传输: WebSocket"
-    echo -e "  路径: /$WSPATH"
-    echo -e "  TLS: 开启"
+    echo -e "${CYAN}⚙️  Client Configuration:${NC}"
+    echo -e "  Protocol: VLESS/Trojan"
+    echo -e "  Address: $DOMAIN"
+    echo -e "  Port: 443"
+    echo -e "  UUID/Password: $USER_UUID"
+    echo -e "  Transport: WebSocket"
+    echo -e "  Path: /$WSPATH"
+    echo -e "  TLS: Enabled"
     echo ""
-    echo -e "${CYAN}管理命令:${NC}"
-    echo -e "  状态: ${YELLOW}systemctl status railway-proxy${NC}"
-    echo -e "  启动: ${YELLOW}systemctl start railway-proxy${NC}"
-    echo -e "  停止: ${YELLOW}systemctl stop railway-proxy${NC}"
-    echo -e "  重启: ${YELLOW}systemctl restart railway-proxy${NC}"
-    echo -e "  日志: ${YELLOW}journalctl -u railway-proxy -f${NC}"
+    echo -e "${CYAN}🛠️  Management Commands:${NC}"
+    echo -e "  Status: ${YELLOW}systemctl status railway-proxy${NC}"
+    echo -e "  Start: ${YELLOW}systemctl start railway-proxy${NC}"
+    echo -e "  Stop: ${YELLOW}systemctl stop railway-proxy${NC}"
+    echo -e "  Restart: ${YELLOW}systemctl restart railway-proxy${NC}"
+    echo -e "  Logs: ${YELLOW}journalctl -u railway-proxy -f${NC}"
     echo ""
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     
     cat > $WORKDIR/INFO.txt << INFO
-Railway Proxy 部署信息
+Railway Proxy Deployment Info
 ==========================================
 UUID: $USER_UUID
-域名: $DOMAIN
-端口: $PORT
-路径: /$WSPATH
-IP: $IP
+Domain: $DOMAIN
+Port: $PORT
+Path: /$WSPATH
+Server IP: $SERVER_IP
 
-订阅: https://$DOMAIN/sub
+Subscription: https://$DOMAIN/sub
 
-客户端配置:
-- 协议: VLESS/Trojan
-- 地址: $DOMAIN
-- 端口: 443
+Client Configuration:
+- Protocol: VLESS/Trojan
+- Address: $DOMAIN
+- Port: 443
 - UUID: $USER_UUID
-- 传输: WebSocket
-- 路径: /$WSPATH
-- TLS: 开启
+- Transport: WebSocket
+- Path: /$WSPATH
+- TLS: Enabled
 
-管理:
+Management:
 systemctl {status|start|stop|restart} railway-proxy
 journalctl -u railway-proxy -f
 
-部署时间: $(date)
+Deployment time: $(date)
 ==========================================
 INFO
 }
@@ -641,9 +568,9 @@ INFO
 main() {
     show_welcome
     detect_system
-    check_root
+    check_permissions
     install_dependencies
-    collect_config
+    init_config
     create_workdir
     create_files
     create_env
@@ -652,8 +579,8 @@ main() {
     start_service
     show_info
     echo ""
-    print_success "部署完成! 服务已启动并设置为开机自启"
+    print_success "🎉 Deployment complete! Service started successfully"
 }
 
-trap 'print_error "脚本执行出错"' ERR
+trap 'print_error "⚠️  Script execution error"' ERR
 main "$@"
