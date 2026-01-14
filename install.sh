@@ -82,8 +82,7 @@ cat > config.json << EOF
       "settings": {
         "clients": [
           {
-            "id": "${UUID}",
-            "level": 0
+            "id": "${UUID}"
           }
         ],
         "decryption": "none"
@@ -93,40 +92,12 @@ cat > config.json << EOF
         "wsSettings": {
           "path": "/${WSPATH}"
         }
-      },
-      "sniffing": {
-        "enabled": true,
-        "destOverride": ["http", "tls"]
-      }
-    },
-    {
-      "port": ${PORT},
-      "listen": "0.0.0.0",
-      "protocol": "trojan",
-      "settings": {
-        "clients": [
-          {
-            "password": "${UUID}",
-            "level": 0
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "ws",
-        "wsSettings": {
-          "path": "/${WSPATH}"
-        }
-      },
-      "sniffing": {
-        "enabled": true,
-        "destOverride": ["http", "tls"]
       }
     }
   ],
   "outbounds": [
     {
-      "protocol": "freedom",
-      "tag": "direct"
+      "protocol": "freedom"
     }
   ]
 }
@@ -136,11 +107,17 @@ EOF
 ISP="Unknown"
 NODE_NAME="${NAME:-Railway}"
 
-# VLESS链接
-VLESS_LINK="vless://${UUID}@${DOMAIN}:443?encryption=none&security=tls&sni=${DOMAIN}&type=ws&host=${DOMAIN}&path=%2F${WSPATH}#${NODE_NAME}-VLESS"
+# 使用域名或IP
+if [ "$DOMAIN" != "localhost" ]; then
+    SERVER_ADDR="$DOMAIN"
+else
+    SERVER_ADDR="$IP"
+fi
 
-# Trojan链接
-TROJAN_LINK="trojan://${UUID}@${DOMAIN}:443?security=tls&sni=${DOMAIN}&type=ws&host=${DOMAIN}&path=%2F${WSPATH}#${NODE_NAME}-Trojan"
+# 生成443端口+TLS的链接(与server.js一致)
+VLESS_LINK="vless://${UUID}@${SERVER_ADDR}:443?encryption=none&security=tls&sni=${SERVER_ADDR}&fp=chrome&type=ws&host=${SERVER_ADDR}&path=%2F${WSPATH}#${NODE_NAME}"
+
+TROJAN_LINK="trojan://${UUID}@${SERVER_ADDR}:443?security=tls&sni=${SERVER_ADDR}&fp=chrome&type=ws&host=${SERVER_ADDR}&path=%2F${WSPATH}#${NODE_NAME}-Trojan"
 
 # Base64编码订阅
 SUBSCRIPTION=$(echo -e "${VLESS_LINK}\n${TROJAN_LINK}" | base64 -w 0)
@@ -192,13 +169,10 @@ echo ""
 echo "=========================================="
 echo "🎉 Deployment Complete!"
 echo "=========================================="
-echo "📍 Server: $IP:$PORT"
+echo "📍 Internal Server: ${IP}:${PORT}"
+echo "📍 External Access: ${SERVER_ADDR}:443"
 echo "🔑 UUID: $UUID"
-echo "🌐 Domain: $DOMAIN"
-echo "📂 Path: /$WSPATH"
-echo ""
-echo "🔗 Subscription (Base64):"
-echo "https://$DOMAIN/sub"
+echo "📂 WebSocket Path: /$WSPATH"
 echo ""
 echo "🔗 VLESS Link:"
 echo "$VLESS_LINK"
@@ -206,14 +180,25 @@ echo ""
 echo "🔗 Trojan Link:"
 echo "$TROJAN_LINK"
 echo ""
+echo "📥 Subscription URL:"
+echo "https://${SERVER_ADDR}/sub"
+echo ""
 echo "⚙️  Client Configuration:"
-echo "  - Protocol: VLESS/Trojan"
-echo "  - Address: $DOMAIN"
-echo "  - Port: 443 (with TLS) or $PORT (direct)"
-echo "  - UUID/Password: $UUID"
+echo "  - Protocol: VLESS or Trojan"
+echo "  - Address: ${SERVER_ADDR}"
+echo "  - Port: 443"
+echo "  - UUID: $UUID"
+echo "  - Encryption: none"
 echo "  - Transport: WebSocket"
-echo "  - Path: /$WSPATH"
-echo "  - TLS: Enable when using port 443"
+echo "  - Path: /${WSPATH}"
+echo "  - TLS: Enabled"
+echo "  - SNI: ${SERVER_ADDR}"
+echo "  - Fingerprint: chrome"
+echo ""
+echo "💡 Note:"
+echo "  - Container listens on port ${PORT}"
+echo "  - Clients connect to port 443 with TLS"
+echo "  - Reverse proxy required between 443 and ${PORT}"
 echo ""
 echo "💾 Files saved:"
 echo "  - Config: $WORKDIR/config.json"
