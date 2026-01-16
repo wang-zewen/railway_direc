@@ -19,6 +19,7 @@ const WSPATH = process.env.WSPATH || UUID.slice(0, 8);
 const SUB_PATH = process.env.SUB_PATH || 'sub';
 const NAME = process.env.NAME || '';
 const PORT = process.env.PORT || 8080;
+const PROXY_IP = process.env.PROXY_IP || 'cdns.doon.eu.org';
 
 let ISP = '';
 const GetISP = async () => {
@@ -47,8 +48,8 @@ const httpServer = http.createServer((req, res) => {
     return;
   } else if (req.url === `/${SUB_PATH}`) {
     const namePart = NAME ? `${NAME}-${ISP}` : ISP;
-    const vlessURL = `vless://${UUID}@${DOMAIN}:443?encryption=none&security=tls&sni=${DOMAIN}&fp=chrome&type=ws&host=${DOMAIN}&path=%2F${WSPATH}#${namePart}`;
-    const trojanURL = `trojan://${UUID}@${DOMAIN}:443?security=tls&sni=${DOMAIN}&fp=chrome&type=ws&host=${DOMAIN}&path=%2F${WSPATH}#${namePart}`;
+    const vlessURL = `vless://${UUID}@${PROXY_IP}:443?encryption=none&security=tls&sni=${DOMAIN}&fp=chrome&type=ws&host=${DOMAIN}&path=%2F${WSPATH}#${namePart}`;
+    const trojanURL = `trojan://${UUID}@${PROXY_IP}:443?security=tls&sni=${DOMAIN}&fp=chrome&type=ws&host=${DOMAIN}&path=%2F${WSPATH}#${namePart}`;
     const subscription = vlessURL + '\n' + trojanURL;
     const base64Content = Buffer.from(subscription).toString('base64');
     
